@@ -15,7 +15,11 @@ from lime.lime_tabular import LimeTabularExplainer
 # -----------------------------
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={
+    r"/*": {
+        "origins": "*"
+    }
+})
 
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///students.db"
 
