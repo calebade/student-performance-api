@@ -4,6 +4,8 @@ from flask_cors import CORS
 import numpy as np
 import joblib
 import json
+import pandas as pd
+from models import db, StudentPrediction
 
 # Optional LIME
 from lime.lime_tabular import LimeTabularExplainer
@@ -14,6 +16,12 @@ from lime.lime_tabular import LimeTabularExplainer
 
 app = Flask(__name__)
 CORS(app)
+
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///students.db"
+
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+db.init_app(app)
 
 # -----------------------------
 # LOAD FILES
@@ -85,10 +93,26 @@ def predict():
         ]
 
         # Convert to numpy array
-        X = np.array([values])
+        X = pd.DataFrame([{
 
+            "CA1": data["CA1"],
+
+            "CA2": data["CA2"],
+
+            "Assignment": data["Assignment"],
+
+            "Mid_Semester_Exam": data["Mid_Semester_Exam"],
+
+            "Attendance_%": data["Attendance_%"]
+
+        }])
+        
         # Predict
         prediction = model.predict(X)
+
+        probabilities = model.predict_proba(X)[0]
+
+        confidence = round(max(probabilities) * 100, 2)
 
         # Decode grade
         grade = encoder.inverse_transform(prediction)[0]
@@ -108,13 +132,41 @@ def predict():
 
         top_factors = [x[0] for x in sorted_features[:3]]
 
+        record = StudentPrediction(
+
+            ca1=data["CA1"],
+
+            ca2=data["CA2"],
+
+            assignment=data["Assignment"],
+
+            midterm=data["Mid_Semester_Exam"],
+
+            attendance=data["Attendance_%"],
+
+            predicted_grade=grade,
+
+            pass_fail=pass_fail,
+
+            risk_level=risk,
+
+            confidence=confidence
+
+        )
+
+        db.session.add(record)
+
+        db.session.commit()
+
         # Response
         return jsonify({
 
             "predicted_grade": grade,
             "pass_fail": pass_fail,
             "risk_level": risk,
-            "top_factors": top_factors
+            "confidence": confidence,
+            "top_factors": top_factors,
+            "feature_importance": feature_importance
 
         })
 
@@ -123,6 +175,20 @@ def predict():
         return jsonify({
             "error": str(e)
         }), 500
+
+
+# -----------------------------
+# HISTORY RETRIEVAL ROUTE
+# -----------------------------
+@app.route("/history", methods=["GET"])
+
+def history():
+
+    records = StudentPrediction.query.all()
+
+    output = [r.to_dict() for r in records]
+
+    return jsonify(output)
 
 # -----------------------------
 # LIME EXPLANATION ROUTE
