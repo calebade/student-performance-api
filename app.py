@@ -59,6 +59,9 @@ def derive_risk(grade):
     if grade == "F":
         return "High"
 
+    elif grade == "E":
+        return "High"
+    
     elif grade == "D":
         return "Medium"
 
@@ -87,29 +90,33 @@ def predict():
 
         data = request.get_json()
 
+        print("REQUEST DATA:", data)
+
         # Extract features
         values = [
-            data["CA1"],
-            data["CA2"],
-            data["Assignment"],
-            data["Mid_Semester_Exam"],
-            data["Attendance_%"]
+            float(data.get("CA1", 0)),
+            float(data.get("CA2", 0)),
+            float(data.get("Assignment", 0)),
+            float(data.get("Mid_Semester_Exam", 0)),
+            float(data.get("Attendance_%", 0))
         ]
 
+        print("FEATURE VECTOR:", values)
+
         # Convert to numpy array
-        X = pd.DataFrame([{
+        X = pd.DataFrame([values], columns=[
 
-            "CA1": data["CA1"],
+            "CA1",
 
-            "CA2": data["CA2"],
+            "CA2",
 
-            "Assignment": data["Assignment"],
+            "Assignment",
 
-            "Mid_Semester_Exam": data["Mid_Semester_Exam"],
+            "Mid_Semester_Exam",
 
-            "Attendance_%": data["Attendance_%"]
+            "Attendance_%"
 
-        }])
+        ])
         
         # Predict
         prediction = model.predict(X)
@@ -136,17 +143,18 @@ def predict():
 
         top_factors = [x[0] for x in sorted_features[:3]]
 
+
         record = StudentPrediction(
 
-            ca1=data["CA1"],
+            ca1=data.get("CA1", 0),
 
-            ca2=data["CA2"],
+            ca2=data.get("CA2", 0),
 
-            assignment=data["Assignment"],
+            assignment=data.get("Assignment", 0),
 
-            midterm=data["Mid_Semester_Exam"],
+            midterm=data.get("Mid_Semester_Exam", 0),
 
-            attendance=data["Attendance_%"],
+            attendance=data.get("Attendance_%", 0),
 
             predicted_grade=grade,
 
@@ -157,6 +165,7 @@ def predict():
             confidence=confidence
 
         )
+
 
         db.session.add(record)
 
@@ -259,3 +268,4 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=port
     )
+   
